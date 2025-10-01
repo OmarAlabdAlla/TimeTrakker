@@ -18,34 +18,36 @@ class TimeTrackingDatabase:
     
     def create_table(self):
         """Create the time_entries table if it doesn't exist"""
-        conn = sqlite3.connect(self.db_name)
-        cursor = conn.cursor()
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS time_entries (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                date TEXT NOT NULL,
-                start_time TEXT NOT NULL,
-                end_time TEXT NOT NULL,
-                total_hours REAL NOT NULL,
-                task_notes TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        ''')
-        conn.commit()
-        conn.close()
+        with sqlite3.connect(self.db_name) as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS time_entries (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    date TEXT NOT NULL,
+                    start_time TEXT NOT NULL,
+                    end_time TEXT NOT NULL,
+                    total_hours REAL NOT NULL,
+                    task_notes TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            # Create index on date for better query performance
+            cursor.execute('''
+                CREATE INDEX IF NOT EXISTS idx_date ON time_entries(date)
+            ''')
+            conn.commit()
     
     def add_entry(self, date: str, start_time: str, end_time: str, 
                   total_hours: float, task_notes: str) -> bool:
         """Add a new time entry to the database"""
         try:
-            conn = sqlite3.connect(self.db_name)
-            cursor = conn.cursor()
-            cursor.execute('''
-                INSERT INTO time_entries (date, start_time, end_time, total_hours, task_notes)
-                VALUES (?, ?, ?, ?, ?)
-            ''', (date, start_time, end_time, total_hours, task_notes))
-            conn.commit()
-            conn.close()
+            with sqlite3.connect(self.db_name) as conn:
+                cursor = conn.cursor()
+                cursor.execute('''
+                    INSERT INTO time_entries (date, start_time, end_time, total_hours, task_notes)
+                    VALUES (?, ?, ?, ?, ?)
+                ''', (date, start_time, end_time, total_hours, task_notes))
+                conn.commit()
             return True
         except Exception as e:
             print(f"Error adding entry: {e}")
@@ -53,15 +55,14 @@ class TimeTrackingDatabase:
     
     def get_all_entries(self) -> List[Tuple]:
         """Retrieve all time entries from the database"""
-        conn = sqlite3.connect(self.db_name)
-        cursor = conn.cursor()
-        cursor.execute('''
-            SELECT id, date, start_time, end_time, total_hours, task_notes
-            FROM time_entries
-            ORDER BY date DESC, start_time DESC
-        ''')
-        entries = cursor.fetchall()
-        conn.close()
+        with sqlite3.connect(self.db_name) as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT id, date, start_time, end_time, total_hours, task_notes
+                FROM time_entries
+                ORDER BY date DESC, start_time DESC
+            ''')
+            entries = cursor.fetchall()
         return entries
     
     def get_weekly_hours(self) -> float:
@@ -70,50 +71,64 @@ class TimeTrackingDatabase:
         # Get the start of the week (Monday)
         start_of_week = today - timedelta(days=today.weekday())
         start_date = start_of_week.strftime('%Y-%m-%d')
+        end_date = today.strftime('%Y-%m-%d')
         
-        conn = sqlite3.connect(self.db_name)
-        cursor = conn.cursor()
-        cursor.execute('''
-            SELECT SUM(total_hours)
-            FROM time_entries
-            WHERE date >= ?
-        ''', (start_date,))
-        result = cursor.fetchone()[0]
-        conn.close()
+        with sqlite3.connect(self.db_name) as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT SUM(total_hours)
+                FROM time_entries
+                WHERE date BETWEEN ? AND ?
+            ''', (start_date, end_date))
+            result = cursor.fetchone()[0]
         return result if result else 0.0
     
     def get_monthly_hours(self) -> float:
         """Calculate total hours for the current month"""
         today = datetime.now()
         start_of_month = today.replace(day=1).strftime('%Y-%m-%d')
+        end_date = today.strftime('%Y-%m-%d')
         
-        conn = sqlite3.connect(self.db_name)
-        cursor = conn.cursor()
-        cursor.execute('''
-            SELECT SUM(total_hours)
-            FROM time_entries
-            WHERE date >= ?
-        ''', (start_of_month,))
-        result = cursor.fetchone()[0]
-        conn.close()
+        with sqlite3.connect(self.db_name) as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT SUM(total_hours)
+                FROM time_entries
+                WHERE date BETWEEN ? AND ?
+            ''', (start_of_month, end_date))
+            result = cursor.fetchone()[0]
         return result if result else 0.0
     
+    def _sanitize_for_export(self, value) -> str:
+        """Sanitize value to prevent formula injection in CSV/Excel exports"""
+        if value is None:
+            return ""
+        value_str = str(value)
+        # Check if the value starts with potentially dangerous characters
+        if value_str and value_str[0] in ('=', '+', '-', '@', '\t', '\r'):
+            # Prefix with a single quote to prevent formula execution
+            return "'" + value_str
+        return value_str
+    
     def export_to_csv(self, filename: str = "time_entries.csv") -> bool:
-        """Export all entries to a CSV file"""
+        """Export all entries to a CSV file with formula injection protection"""
         import csv
         try:
             entries = self.get_all_entries()
             with open(filename, 'w', newline='') as csvfile:
                 writer = csv.writer(csvfile)
                 writer.writerow(['ID', 'Date', 'Start Time', 'End Time', 'Total Hours', 'Task/Notes'])
-                writer.writerows(entries)
+                # Sanitize each row to prevent formula injection
+                for entry in entries:
+                    sanitized_row = [self._sanitize_for_export(value) for value in entry]
+                    writer.writerow(sanitized_row)
             return True
         except Exception as e:
             print(f"Error exporting to CSV: {e}")
             return False
     
     def export_to_excel(self, filename: str = "time_entries.xlsx") -> bool:
-        """Export all entries to an Excel file"""
+        """Export all entries to an Excel file with formula injection protection"""
         from openpyxl import Workbook
         try:
             entries = self.get_all_entries()
@@ -125,9 +140,10 @@ class TimeTrackingDatabase:
             headers = ['ID', 'Date', 'Start Time', 'End Time', 'Total Hours', 'Task/Notes']
             ws.append(headers)
             
-            # Add data
+            # Add data with sanitization to prevent formula injection
             for entry in entries:
-                ws.append(entry)
+                sanitized_row = [self._sanitize_for_export(value) for value in entry]
+                ws.append(sanitized_row)
             
             # Auto-adjust column widths
             for column in ws.columns:
