@@ -5,6 +5,9 @@
 [![Status](https://img.shields.io/badge/status-active-success.svg)](https://github.com/OmarAlabdAlla/TimeTrakker)
 
 A lightweight, efficient Python productivity application designed to help you track work sessions and manage your time effectively. Built with simplicity and performance in mind.
+## 📸 Application Preview
+
+![TimeTrakker UI](screenshots/main-ui.png)
 
 ## 📋 Table of Contents
 
