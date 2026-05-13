@@ -9,6 +9,11 @@ A lightweight, efficient Python productivity application designed to help you tr
 
 ![TimeTrakker UI](screenshots/main-ui.png)
 
+
+## 🎯 Purpose
+
+This project was created to practice Python application development, SQLite database integration, and productivity tool design while building a practical real-world application.
+
 ## 📋 Table of Contents
 
 - [Features](#features)
@@ -83,7 +88,7 @@ python time_tracker.py
 
 ## 🎯 Roadmap
 
-- [ ] 🎨 GUI Interface - Desktop application with visual dashboard
+- [ ] 🎨 Improve GUI/UX design - Desktop application with visual dashboard
 - [ ] 📊 Analytics Dashboard - Detailed productivity statistics and insights
 - [ ] ☁️ Cloud Synchronization - Sync data across multiple devices
 - [ ] 📄 Export Reports - Generate and export productivity reports
@@ -108,6 +113,6 @@ Contributions are welcome! Feel free to:
 
 <div align="center">
 
-Made with ❤️ by Omar Alabd Alla
+Made by Omar Alabdalla
 
 </div>
