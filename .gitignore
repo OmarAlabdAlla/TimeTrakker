@@ -46,3 +46,9 @@ Thumbs.db
 # Exported files
 *.csv
 *.xlsx
+.local/
+__pycache__/
+time_tracker.db
+.replit
+replit.md
+attached_assets/
