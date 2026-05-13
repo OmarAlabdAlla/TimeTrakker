@@ -97,7 +97,7 @@ Contributions are welcome! Feel free to:
 
 ## 👤 Author
 
-**Omar Alabd Alla**
+**Omar Alabdalla**
 
 - GitHub: [@OmarAlabdAlla](https://github.com/OmarAlabdAlla)
 
